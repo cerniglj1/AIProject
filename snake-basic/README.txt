@@ -7,3 +7,7 @@ Patches:
 
 https://github.com/louisbourque/AI-Snake-Game
 Someone else's approach to our situation
+
+
+link to progress report google doc
+https://docs.google.com/document/d/1bVRWSKUNQyOJ4bWADzqPmPej9p6W_D5nvJmDEEN1txM/edit?usp=sharing
