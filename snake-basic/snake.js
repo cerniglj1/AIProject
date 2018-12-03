@@ -1,44 +1,363 @@
-const canvas = document.getElementById("canvas");
-const context = canvas.getContext("2d");
-const tile = 16;
+var c = document.getElementsByTagName("canvas")[0];
+var ctx = c.getContext("2d");
+var w = 608;
+var h = 608;
+var ROWS = 38;
+var COLS = 38;
+var BLOCK_W = Math.floor(w / COLS);
+var BLOCK_H = Math.floor(h / ROWS);
+var gameOver = false;
+var tile = 16;
+// size of grid nxn
+var size = ROWS;
 
-const boardImg = new Image();
+// initialize grid of size 10
+var grid_aStar = grid(size);
+
+// starting values
+var start_x = Math.floor(ROWS / 2);
+var start_y = Math.floor(COLS / 2);
+
+// get the starting point of the item (apple)
+do {
+  var item_x = Math.floor(Math.random() * size);
+  var item_y = Math.floor(Math.random() * size);
+} while (grid_aStar[item_y][item_x].block == true);
+
+// array for where the elements of the snake will be
+var snake = new Array();
+snake.push(grid_aStar[start_y][start_x]);
+grid_aStar[start_y][start_x].block = true;
+
+function Node(x, y) {
+  this.block = false;
+  this.x = x;
+  this.y = y;
+  this.parent = null;
+  this.gScore = -1; // score of getting from start to this node
+  this.fScore = -1; // score of gScore plus hueristic value
+  this.heuristicCalc = function(x_final, y_final) {
+    return Math.floor(Math.abs(x_final - this.x) + Math.abs(y_final - this.y));
+  };
+}
+
+// create 2D grid of of nxn where n = size
+function grid(size) {
+  // create array
+  var grid = new Array(size);
+  for (var i = 0; i < size; i++) {
+    grid[i] = new Array(size);
+  }
+
+  // associate each element with a node object
+  for (var i = 0; i < size; i++) {
+    for (var j = 0; j < size; j++) {
+      if (grid[i][j] != "-") {
+        grid[i][j] = new Node(j, i);
+      }
+    }
+  }
+
+  return grid;
+}
+
+// used to sort open set according to fScore values
+function fScoreSort(a, b) {
+  if (a.fScore < b.fScore) return -1;
+  if (a.fScore > b.fScore) return 1;
+  return 0;
+}
+
+// checks to see if the currentNode should be looked at
+function inBoundsCheck(currentNode, i, j) {
+  // out of bounds
+  if (
+    currentNode.x + j < 0 ||
+    currentNode.x + j > size - 1 ||
+    currentNode.y + i < 0 ||
+    currentNode.y + i > size - 1
+  ) {
+    return false;
+  }
+
+  // check to see if block is within the grid
+  if (grid_aStar[currentNode.y + i][currentNode.x + j].block) {
+    return false;
+  }
+
+  // skip the current node
+  if (
+    (currentNode.y + i == currentNode.y &&
+      currentNode.x + j == currentNode.x) ||
+    (i == -1 && j == -1) ||
+    (i == -1 && j == 1) ||
+    (i == 1 && j == -1) ||
+    (i == 1 && j == 1)
+  ) {
+    return false;
+  }
+
+  // if it passed all possible checks
+  return true;
+}
+
+function A_Star() {
+  // ending values
+  var end_x = item_x;
+  var end_y = item_y;
+
+  // set of nodes that have already been looked at
+  var closedSet = [];
+
+  // set of nodes that are known but not looked at
+  var openSet = [];
+
+  // add the starting element to the open set
+  openSet.push(grid_aStar[start_y][start_x]);
+  grid_aStar[start_y][start_x].gScore = 0;
+  grid_aStar[start_y][start_x].fScore = grid_aStar[start_y][
+    start_x
+  ].heuristicCalc(end_x, end_y); // just the heuristic
+
+  // while open set is not empty
+  while (openSet.length > 0) {
+    openSet.sort(fScoreSort);
+    var currentNode = openSet[0];
+
+    if (currentNode.x == end_x && currentNode.y == end_y) {
+      return reconstruct_path(grid_aStar, currentNode, start_x, start_y); // return path
+    }
+
+    // remove current node from open set
+    var index = openSet.indexOf(currentNode);
+    openSet.splice(index, 1);
+
+    closedSet.push(currentNode);
+
+    // looking at all of the node's neighbours
+    for (var i = -1; i < 2; i++) {
+      for (var j = -1; j < 2; j++) {
+        if (!inBoundsCheck(currentNode, i, j)) {
+          continue;
+        }
+
+        var neighbour = grid_aStar[currentNode.y + i][currentNode.x + j];
+
+        // if node is within the closed set, it has already
+        // been looked at - therefore skip it
+        if (closedSet.indexOf(neighbour) != -1) {
+          continue;
+        }
+
+        // set tentative score to gScore plus distance from current to neighbour
+        // in this case, the weight is equal to 1 everywhere
+        var tScore = neighbour.gScore + 1;
+
+        // if neighbour is not in open set, add it
+        if (openSet.indexOf(neighbour) == -1) {
+          openSet.push(neighbour);
+        }
+
+        // this is a better path so set node's new values
+        neighbour.parent = currentNode;
+        neighbour.gScore = tScore;
+        neighbour.fScore =
+          neighbour.gScore + neighbour.heuristicCalc(end_x, end_y);
+      }
+    }
+  }
+
+  // the node was not found or could not be reached
+  return false;
+}
+
+function reconstruct_path(grid_aStar, current, start_x, start_y) {
+  var currentNode = current;
+  var totalPath = [current];
+
+  // go through the parents to find how the route
+  while (currentNode.parent != null) {
+    totalPath.push(currentNode.parent);
+    currentNode = currentNode.parent;
+  }
+
+  return totalPath;
+}
 const foodImg = new Image();
-boardImg.src = "imgs/gameboard.png";
 foodImg.src = "imgs/apple.png";
+// draws the board and the moving shape
+function draw() {
+  if (!gameOver) {
+    for (var x = 0; x < COLS; ++x) {
+      for (var y = 0; y < ROWS; ++y) {
+        if (y == item_y && x == item_x) {
+          // ctx.fillStyle = "red";
+        } else if (snake[0].x == x && snake[0].y == y) {
+          ctx.fillStyle = "red";
+          console.log("head");
+        } else if (grid_aStar[y][x].block) {
+          ctx.fillStyle = "green";
+        } else {
+          ctx.strokeStyle = "black";
+          ctx.lineWidth = "0.8";
+          ctx.fillStyle = "black";
+        }
 
-let snake = [];
-snake[0] = { x: 9 * tile, y: 10 * tile };
-
-let food = {
-  x: Math.floor(Math.random() * 34 + 2) * tile,
-  y: Math.floor(Math.random() * 30 + 6) * tile
-};
-
-let score = 0;
-let dir;
-let search;
-
-document.addEventListener("keydown", direction);
-
-/** Starts the snake by itself without human input */
-function start() {
-  init();
-  stats.moves = 0;
-  stats.food = 0;
-  stats.count = 0;
+        // ctx.drawImage(boardImg, 0, 0);
+        ctx.drawImage(foodImg, item_x * 16, item_y * 16);
+        ctx.fillRect(BLOCK_W * x, BLOCK_H * y, BLOCK_W, BLOCK_H);
+        ctx.strokeRect(BLOCK_W * x, BLOCK_H * y, BLOCK_W, BLOCK_H);
+      }
+    }
+  }
 }
 
-/** Allows us to change the search method we want to use later on in the project. */
-function change_search() {
-  var message = new Object();
-  message.do = "set_search";
-  message.search = document.getElementById("search").value;
-  search = message.search;
-  console.log("current search: " + message.search);
+// get the next node for the snake to move
+function getNextMove(end_x, end_y) {
+  var nextLoc;
+  var lowestfScore = -1;
+  var lowestfScoreNode = null;
+  for (var i = -1; i < 2; i++) {
+    for (var j = -1; j < 2; j++) {
+      if (!inBoundsCheck(snake[0], i, j)) {
+        continue;
+      }
+
+      var neighbour = grid_aStar[snake[0].y + i][snake[0].x + j];
+
+      // pathScore = fScore + pathLength
+      var pathScore =
+        neighbour.gScore +
+        neighbour.heuristicCalc(end_x, end_y) +
+        pathLength(neighbour) +
+        1;
+
+      // find the largest pathScore
+      if (pathScore > lowestfScore) {
+        lowestfScore = pathScore;
+        lowestfScoreNode = neighbour;
+      }
+    }
+  }
+
+  return lowestfScoreNode;
 }
+
+// determine how many spaces are available to move given the currentNode
+function pathLength(currentNode) {
+  var currNode = currentNode;
+  var numOfNodes = 0;
+
+  var longestPathArray = new Array();
+
+  for (var i = -1; i < 2; i++) {
+    for (var j = -1; j < 2; j++) {
+      if (!inBoundsCheck(currNode, i, j)) {
+        continue;
+      }
+
+      currNode = grid_aStar[currNode.y + i][currNode.x + j];
+
+      // increment the number of nodes and reset the check to looking at the top node
+      numOfNodes++;
+      i = -1;
+      j = -1;
+
+      longestPathArray.push(currNode);
+
+      // check if no where else to go
+      if (
+        (!(currNode.x + 1 >= 0 && currNode.x + 1 < size) ||
+          grid_aStar[currNode.y][currNode.x + 1] == undefined ||
+          grid_aStar[currNode.y][currNode.x + 1].block) &&
+        (!(currNode.x - 1 >= 0 && currNode.x - 1 < size) ||
+          grid_aStar[currNode.y][currNode.x - 1] == undefined ||
+          grid_aStar[currNode.y][currNode.x - 1].block) &&
+        (!(currNode.y + 1 >= 0 && currNode.y + 1 < size) ||
+          grid_aStar[currNode.y + 1][currNode.x] == undefined ||
+          grid_aStar[currNode.y + 1][currNode.x].block) &&
+        (!(currNode.y - 1 >= 0 && currNode.y - 1 < size) ||
+          grid_aStar[currNode.y - 1][currNode.x] == undefined ||
+          grid_aStar[currNode.y - 1][currNode.x].block)
+      ) {
+        // house keeping - reset blocks to false
+        for (var i = 0; i < longestPathArray.length - 1; i++) {
+          longestPathArray[i].block = false;
+        }
+
+        return numOfNodes;
+      }
+      currNode.block = true;
+    }
+  }
+}
+
+function tick() {
+  // keep track of where the trail is
+  var tail;
+
+  if (!gameOver) {
+    var path = A_Star();
+
+    // clear the grid to perform the next set of calculations
+    for (var j = 0; j < path.length - 1; j++) {
+      path[j].parent = null;
+      path[j].gScore = -1;
+      path[j].fScore = -1;
+    }
+
+    for (var i = 0; i < grid_aStar.length; i++) {
+      for (var j = 0; j < grid_aStar.length; j++) {
+        grid_aStar[i][j].parent = null;
+        grid_aStar[i][j].gScore = -1;
+        grid_aStar[i][j].fScore = -1;
+      }
+    }
+
+    // if there is a path using A* to the item, go to the first node
+    if (path) {
+      var nextLoc = path[path.length - 2];
+    } else {
+      // otherwise, attempt to find the next best movement
+      var nextNode = getNextMove(item_x, item_y);
+      if (nextNode == null) {
+        gameOver = true;
+        document.getElementById("gameover").innerHTML = "Game Over";
+        return;
+      } else {
+        nextLoc = nextNode;
+      }
+    }
+
+    // set next location
+    snake.unshift(nextLoc);
+    nextLoc.block = true;
+    start_x = nextLoc.x;
+    start_y = nextLoc.y;
+
+    // if not at the item, pop the tail
+    if (!(nextLoc.x == item_x && nextLoc.y == item_y)) {
+      tail = snake.pop();
+      tail.block = false;
+      tail.gScore = -1;
+      tail.fScore = -1;
+    } else {
+      // if at the item, set a new item location
+      do {
+        item_x = Math.floor(Math.random() * ROWS);
+        item_y = Math.floor(Math.random() * ROWS);
+      } while (grid_aStar[item_y][item_x].block == true);
+    }
+  }
+}
+var dir = "";
 function direction(event) {
   let key = event.keyCode;
+
+  // 37=left
+  // 38=up
+  // 39=right
+  // 40=down
 
   if (key == 37 && dir != "right") {
     dir = "left";
@@ -48,67 +367,63 @@ function direction(event) {
     dir = "right";
   } else if (key == 40 && dir != "up") {
     dir = "down";
+  } else if (key == 80) {
+    dir = "pause";
   }
 }
 
-function collision(head, snake) {
-  for (let i = 0; i < snake.length; i++) {
-    if (head.x == snake[i].x && head.y == snake[i].y) {
-      return true;
+function control() {
+  // keep track of where the trail is
+  var tail;
+  document.addEventListener("keydown", direction);
+  if (!gameOver) {
+    if (dir == "left") {
+      snake[0].x = snake[0].x - 1;
+    }
+    if (dir == "up") {
+      snake[0].y = snake[0].y - 1;
+    }
+    if (dir == "right") {
+      snake[0].x = snake[0].x + 1;
+    }
+    if (dir == "down") {
+      snake[0].y = snake[0].y - 1;
+    }
+
+    // if not at the item, pop the tail
+    if (!(snake[0].x == item_x && snake[0].y == item_y)) {
+      tail = snake.pop();
+      tail.block = false;
+      tail.gScore = -1;
+      tail.fScore = -1;
+    } else {
+      // if at the item, set a new item location
+      do {
+        item_x = Math.floor(Math.random() * ROWS);
+        item_y = Math.floor(Math.random() * ROWS);
+      } while (grid_aStar[item_y][item_x].block == true);
     }
   }
-  return false;
+}
+function change_search() {
+  var message = new Object();
+  message.do = "set_search";
+  message.search = document.getElementById("search").value;
+  search = message.search;
+  console.log("current search: " + message.search);
+}
+var SearchChosen = search;
+function start() {
+  draw();
+  SearchChosen = search;
+  setInterval(tick, .2);
+  setInterval(draw, 50);
+}
+function play() {
+  draw();
+  SearchChosen = search;
+  setInterval(control, 50);
+  setInterval(draw, 50);
 }
 
-function draw() {
-  context.drawImage(boardImg, 0, 0);
-
-  for (let i = 0; i < snake.length; i++) {
-    context.fillStyle = i == 0 ? "firebrick" : "darkred";
-    context.fillRect(snake[i].x, snake[i].y, tile, tile);
-    context.strokeStyle = "darkgoldenrod";
-    context.strokeRect(snake[i].x, snake[i].y, tile, tile);
-  }
-
-  context.drawImage(foodImg, food.x, food.y);
-
-  let snakeX = snake[0].x;
-  let snakeY = snake[0].y;
-
-  if (dir == "left") snakeX -= tile;
-  if (dir == "up") snakeY -= tile;
-  if (dir == "right") snakeX += tile;
-  if (dir == "down") snakeY += tile;
-
-  if (snakeX == food.x && snakeY == food.y) {
-    score++;
-    food = {
-      x: Math.floor(Math.random() * 34 + 2) * tile,
-      y: Math.floor(Math.random() * 30 + 6) * tile
-    };
-  } else {
-    snake.pop();
-  }
-
-  let newHead = {
-    x: snakeX,
-    y: snakeY
-  };
-
-  if (
-    snakeX < 2 * tile ||
-    snakeX > 35 * tile ||
-    snakeY < 6 * tile ||
-    snakeY > 35 * tile ||
-    collision(newHead, snake)
-  ) {
-    clearInterval(game);
-  }
-
-  snake.unshift(newHead);
-
-  context.fillStyle = "white";
-  context.font = "45px Changa one";
-  context.fillText(score, 6 * tile, 4 * tile);
-}
-let game = setInterval(draw, 100);
+// startGame();
