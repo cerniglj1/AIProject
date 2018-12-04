@@ -1,4 +1,7 @@
 canvas {
-    display: block;
-    margin: 0 auto;
+  display: block;
+  margin: 0 auto;
+}
+div {
+    box-shadow: 10px 10px 5px grey;
 }

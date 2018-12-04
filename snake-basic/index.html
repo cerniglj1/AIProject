@@ -14,20 +14,31 @@
   </head>
 
   <body>
-    <div id="game"><canvas id="canvas" width="608" height="608"></canvas></div>
-    <input type="button" value="Start" onclick="start();" />
-    <input type="button" value="Play" onclick="play();" />
-
-    <select id="search" onchange="change_search();">
-      <option>BFS</option>
-      <option>DFS</option>
-      <option>A*</option>
-    </select>
-    <p>Highscore: <span id="highscore">0</span></p>
-    <p>right good? <span id="rightgood">0</span></p>
-    <p>up good? <span id="upgood">0</span></p>
-    <p>down good? <span id="downgood">0</span></p>
-    <p>left good? <span id="leftgood">0</span></p>
+    <div class="jumbotron">
+      <h1>Snake with Artificial Intelligence</h1><br>
+      <h2>By Sam Zierler, Nick Agneta, and James Cerniglia</h2>
+    </div>
+    <div class="container">
+      <div class="row">
+        <div class="col-sm-2" style="background-color:yellow;">
+          <select id="search" onchange="change_search();">
+            <option>A*</option>
+            <option>BFS</option>
+            <option>DFS</option>
+          </select>
+          <input type="button" value="Start" onclick="start();" />
+          <input type="button" value="Play" onclick="play();" />
+          <p>Highscore: <span id="highscore">0</span></p>
+          <p>Current Score: <span id="score">0</span></p>
+          <p><span id="gameover"></span></p>
+        </div>
+        <div class="col-sm-2" style="background-color:yellow;">
+          <div id="game">
+            <canvas id="canvas" width="608" height="608"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
   </body>
   <script src="snake.js"></script>
 </html>
