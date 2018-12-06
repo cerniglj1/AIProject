@@ -10,8 +10,7 @@
         <div class="row">
             <div class="col-2">
                 <div id="algorithm-selection-div">
-                    <!-- <p class="help-text">To test bot performance, pick an algorithm to use:</p> -->
-                    <select id="search" onchange="change_search();">
+                    <select id="search">
                         <option>Best First (greedy) Search</option>
                     </select>
                     <input type="button" value="Start" onclick="aiStart();">
@@ -40,8 +39,6 @@
             <div class="col-1"></div>
         </div>
 
-        <script src="Queue.js"></script>
-        <script src="ai.js"></script>
-        <script src="snake.js"></script>
+        <script src="greedy_snake.js"></script>
     </body>
 </html>

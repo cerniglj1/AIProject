@@ -14,12 +14,17 @@ let isRunning = false;
 
 let isAIGame = false;
 
-let fps = 20;
+let fps = 10;
 
 function init() {
     isRunning = false;
     draw();
 }
+
+/*
+ * function to begin a new game of snake
+ * sets `isRunning` to true, resets `score`, initializes snake and food and begins loop()
+ */
 
 function startGame() {
   var element = document.getElementById("game-mode-div");
@@ -32,6 +37,11 @@ function startGame() {
   loop();
 }
 
+/*
+ * function when game ends
+ * sets `isRunning` to false, resets fps
+ */
+
 function gameOver() {
   var element = document.getElementById("game-mode-div");
   element.innerHTML = "Game Mode:"
@@ -41,13 +51,15 @@ function gameOver() {
   isAIGame = false;
 }
 
-/** Starts the snake by itself without human input */
+/*
+ * function to begin bot game
+ */
+
 function aiStart() {
 
   if (isRunning) {
       //handle error
   } else {
-    // procede as bot game --> get algorithm type --> play
     var element = document.getElementById("game-mode-div");
     element.innerHTML = "Game Mode: Bot"
     isRunning = true;
@@ -55,21 +67,16 @@ function aiStart() {
     score = 0;
     snake.init();
     food.set();
-    // begin ai loop here
     loop();
   }
 }
 
-/** Allows us to change the search method we want to use later on in the project. */
-function change_search() {
-  var message = new Object();
-  message.do = "set_search";
-  message.search = document.getElementById("search").value;
-  search = message.search;
-  console.log("current search: " + message.search);
-}
-
 document.addEventListener("keydown", keyPressed);
+
+/*
+ * keyPressed handles keyboard listener
+ * arrow keys or WASD manipulate the snake when player is human, space bar restarts the game, q to quit
+ */
 
 function keyPressed(event) {
   let key = event.keyCode;
@@ -89,6 +96,11 @@ function keyPressed(event) {
   }
 }
 
+/*
+ * snake object
+ * has an array of segments and a direction, default is down
+ */
+
 snake = {
     segments: [],
     direction: 'down',
@@ -96,9 +108,15 @@ snake = {
     init: function() {
         snake.segments = [];
         snake.segments[0] = { x: 9 * tile, y: 10 * tile };
-        console.log("x " + snake.segments[0].x + " y " + snake.segments[0].y);
         snake.direction = 'down';
     },
+
+    /*
+     * function to move the snake
+     * gets position of first segment as head, adjusts for +/- tile based on snake.direction
+     * calls .checkEat on head position to see if snake is on tile with food object
+     * calls .checkCollision on head position to see if snake has hit a wall or itself
+     */
 
     move: function() {
 
@@ -125,6 +143,12 @@ snake = {
         snake.segments.unshift(newhead);
     },
 
+    /*
+     * function to check if snake has "eaten" the food
+     * increase score if snake and food at same tile, if score % 5 is 0, increase fps, set new food
+     * if snake has not eaten, remove "old" head segment (from previous tile location before this check)
+     */
+
     checkEat: function(snake_x, snake_y) {
         if (snake_x == food.x && snake_y == food.y) {
             score++;
@@ -132,18 +156,28 @@ snake = {
                 fps += 5;
                 console.log("fps increased, " + fps);
             }
-            // increase fps over time ?
             food.set();
         } else {
             snake.segments.pop();
         }
     },
 
+    /*
+     * function to check if snake has collided
+     * calls helper .hasCollided on snake head position
+     * calls gameOver() if .hasCollided returns true
+     */
+
     checkCollision: function(snake_x, snake_y) {
         if (snake.hasCollided(snake_x, snake_y) === true) {
             gameOver();
         }
     },
+
+    /*
+     * checks if snake x/y is outside tile boundaries of the board
+     * calls helper .selfCollision on snake head and .segments array
+     */
 
     hasCollided: function(x, y) {
         if (x < 2 * tile ||
@@ -154,6 +188,11 @@ snake = {
           return true;
         }
     },
+
+    /*
+     * loops through .segments array to confirm head position does not match any positions of body
+     * if it does, returns true meaning self-collision found; otherwise returns false
+     */
 
     selfCollision: function(head_x, head_y, body) {
 
@@ -166,6 +205,10 @@ snake = {
         return false;
     },
 
+    /*
+     * function to draw the snake to canvas
+     */
+
     draw: function() {
         for (let i = 0; i < snake.segments.length; i++) {
             context.fillStyle = i == 0 ? "firebrick" : "darkred";
@@ -175,19 +218,38 @@ snake = {
         }
     },
 
+    /*
+     * returns head position of snake object from .segments[] index 0
+     */
+
     getHead: function() {
         return this.segments[0];
     }
 }
+
+/*
+ * food object
+ * has x/y position and source image
+ */
 
 food = {
     x: null,
     y: null,
     src: foodImg,
 
+    /*
+     * function to draw the food to canvas
+     */
+
     draw: function() {
         context.drawImage(food.src, food.x, food.y);
     },
+
+    /*
+     * function to set the random food location
+     * assigns random position for new food, however will not let food spawn under current snake segment tile
+     * randomizes location again if a clash is found with setting food position
+     */
 
     set: function() {
         
@@ -216,7 +278,23 @@ food = {
     }
 }
 
- 
+/*
+ * ai snake object
+ * makes move decisions based on greedy-search and limited observable environment
+ * bot knows:
+ *  - its x/y position
+ *  - food x/y position
+ *  the snake finds the difference between these two positions and points its direction towards the row/col
+ *  that contains the food. if any cycle the snake examines if a segment is in front of its current direction,
+ *  meaning it was facing itself, and whether there are segments to its immediate north, south, east, and west
+ *  of only one square away; in this way the snake does not have full understanding of where its trail is but
+ *  only partially aware of segments adjacent to the head at any moment
+ *  the snake will try to take the most direct route to the same row and column as the fruit and then continue
+ *  in a straight direction until its picks up the fruit; any deviation it makes can come only when it is about
+ *  to collide with itself; it cannot make more complex pathing with forethought for the tails position.
+ *  when the snake is confronted with facing itself, it will try to turn 90 degrees to its current direction
+ *  (i.e. direction is left and the snake is facing itself, it will turn either up or down, etc.)
+*/
 
 ai = {
     nextMove: function() {
@@ -232,8 +310,6 @@ ai = {
         var snakeleft = false;
         var snakeright = false;
         var snakenorth = false;
-
-        var specialcase = false;
 
         var temp = {
             x: snake.segments[0].x,
@@ -251,99 +327,67 @@ ai = {
                 facingself = true;
             }
             if ((temp.y + tile) == snake.segments[i].y) {
-                console.log("snakesouth true");
                 snakesouth = true;
             }
             if ((temp.x - tile) == snake.segments[i].x) {
-                console.log("snakeleft true");
                 snakeleft = true;
             }
             if ((temp.x + tile) == snake.segments[i].x) {
-                console.log("snakeright true");
                 snakeright = true;
             }
             if ((temp.y - tile) == snake.segments[i].y) {
-                console.log("snakenorth true");
                 snakenorth = true;
             }
         }
 
-        if (snakesouth) {
-            console.log("snakesouth: direction, " + direction);
-            direction = direction;
-        }
-        if (snakeleft) {
-            console.log("snakeleft: direction, " + direction);
-            direction = direction;
-        }
-        if (snakeright) {
-            console.log("snakeright: direction, " + direction);
-            direction = direction;
-        }
-        if (snakeleft && direction === "down" || snakeleft && direction === "up") {
-            console.log("snakeleft catch " + direction);
-            direction = direction;
-            //specialcase = true;
-        }
-        if (snakeleft && snakesouth && direction === "right") {
-            console.log("snakeleft snakesouth " + direction);
-            direction = direction;
-            specialcase = true;
-        }
-        if (facingself) {
-            console.log("facingself true - turning?");
-            if (rightwall) {
-                console.log("if case - routed to left");
-                direction = "left";
-            } else if (leftwall) {
-                console.log("else if case - routed to right");
-                direction = "right";
-            } else if (snakeleft) {
-                if (snakeright) {
-                    if (snakesouth) {
-                        console.log("snakeleft snakeright snakesouth - routed to up");
-                        direction = "up";
-                    } else {
-                        console.log("snakeleft snakeright - routed to down");
-                        direction = "down";
-                    }
-                } else {
-                    if (direction === "down") {
-                        console.log("else if `snakeleft` case - dir, down - kept");
-                        direction = direction;
-                    } else if (direction === "up") {
-                        console.log("else if `snakeleft` case - dir, up - kept");
-                        direction = direction;
-                    } else {
-                        if (snakeright) {
-                            console.log("snakeleft, else, snakeright - routed up");
-                            direction = "up";
-                        } else if (snakesouth) {
-                            console.log("snakeleft, else, snakedown - routed up");
-                            direction = "up";
-                        } else {
-                            console.log("snakeleft, else - routed down");
-                            direction = "down";
-                        }
-                    }
-                }
-                
-            } else {
-                console.log("facingself else case");
-                if (snakeright) {
-                    console.log("snake right - routed to down");
-                    direction = "down";
-                } else if (snakesouth) {
-                    console.log("snake down - routed to right");
-                    direction = "right";
-                } else {
-                    console.log("else case - routed to left");
-                    direction = "left";
-                }
-            }
-        }  
-        else if (!facingself && !specialcase) {
-            console.log("!facingself - " + direction);
+        switch(direction) {
+        	case 'up':
+        		if (facingself) {
+		       		if (!snakeleft) {
+        				direction = "left";
+        			} else {
+        				direction = "right";
+        			}
+        		} else {
+        			direction = direction;
+        		}
+        		break;
+        	case 'down':
+        		if (facingself) {
+        			if (!snakeleft) {
+        				direction = "left";
+        			} else {
+        				direction = "right";
+        			}
+        		} else {
+        			direction = direction;
+        		}  
+        		break;
+        	case 'left':
+        		if (facingself) {
+        			if (!snakenorth) {
+        				direction = "up";
+        			} else {
+        				direction = "down";
+        			}
+        		} else {
+        			direction = direction;
+        		}
+        		break;
+        	case 'right':
+        		if (facingself) {
+        			if (!snakenorth) {
+        				direction = "up";
+        			} else {
+        				direction = "down";
+        			}
+        		} else {
+        			direction = direction;
+        		}
+        		break;
+         }
+ 
+        if (!facingself) {
             if (food.x > snake.segments[0].x && direction !== "left") {
                 direction = "right";
             } else if (food.x < snake.segments[0].x && direction !== "right") {
@@ -353,26 +397,19 @@ ai = {
             } else if (food.y < snake.segments[0].y && direction !== "down") {
                 direction = "up";
             } else if (food.x == snake.segments[0].x && direction === "down" && !rightwall) {
-                console.log("food in same col, above - routed to right");
                 direction = "right";
             } else if (food.x == snake.segments[0].x && direction === "up" && !rightwall) {
-                console.log("food in same col, below - routed to right");
                 direction = "right";
             } else if (food.x == snake.segments[0].x && direction === "down" && rightwall) {
-                console.log("food in same col, above - routed to left");
                 direction = "left";
             } else if (food.x == snake.segments[0].x && direction === "up" && rightwall) {
-                console.log("food in same col, above - routed to left");
                 direction = "left";
             } else if (food.y == snake.segments[0].y && direction === "left") {
-                console.log("food in same row, right - routed to down");
                 direction = "down";
             } else if (food.y == snake.segments[0].y && direction === "right") {
-                console.log("food in same row, left - routed to down")
                 direction = "down";
             }
         }
-        console.log("============================");
         snake.direction = direction;
 
         var newhead = {
@@ -401,6 +438,11 @@ ai = {
 
 }
 
+/*
+ * main draw function
+ * uses either ai move function or main snake.move based on game type
+ */
+
 function draw() {
   context.drawImage(boardImg, 0, 0);
   
@@ -421,6 +463,10 @@ function draw() {
   }
   
 }
+
+/*
+ * draws score and game messages to canvas
+ */
 
 function drawMessage() {
   context.fillStyle = '#FAA';
@@ -444,13 +490,18 @@ function updateScore() {
     context.fillText(score, 6 * tile, 4 * tile);
 }
 
-//let game = setInterval(loop, 1000 / fps);
+/*
+ * resets interval after fps increase
+ */
 
 function updateFPS(fps) {
     clearInterval(game);
     game = setInterval(loop, 1000 / fps);
 }
 
+/*
+ * main game loop
+ */
 function loop() {
     draw();
     updateFPS(fps);
