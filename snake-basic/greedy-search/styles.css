@@ -1,0 +1,33 @@
+canvas {
+    display: block;
+    margin: 0 auto;
+}
+
+#algorithm-selection-div {
+    margin-top: 100px;
+
+}
+
+.help-text {
+    font-size: 1.0rem;
+    color: black;
+}
+
+#game-mode-div {
+    font-size: 1.5rem;
+    color: purple;
+    margin-top: 25px;
+    margin-left: -25px;
+}
+
+#controls-div {
+    margin: 0 auto;
+    margin-top: 10px;
+    width: 608px;
+}
+
+#controls-text {
+    font-size: 0.8rem;
+    color: slategray;
+    font-style: italic;
+}
